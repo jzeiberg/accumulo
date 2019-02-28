@@ -150,11 +150,6 @@ public class SpanReceiver {
         return true;
       }
 
-      @Override
-      protected boolean handleRuntimeExceptions() {
-        return true;
-      }
-
       public org.apache.thrift.TBase getResult(I iface, span_args args) throws org.apache.thrift.TException {
         iface.span(args.span);
         return null;

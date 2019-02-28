@@ -165,11 +165,6 @@ public class TestService {
         return false;
       }
 
-      @Override
-      protected boolean handleRuntimeExceptions() {
-        return true;
-      }
-
       public checkTrace_result getResult(I iface, checkTrace_args args) throws org.apache.thrift.TException {
         checkTrace_result result = new checkTrace_result();
         result.success = iface.checkTrace(args.tinfo, args.message);

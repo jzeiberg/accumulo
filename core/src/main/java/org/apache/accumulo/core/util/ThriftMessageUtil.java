@@ -38,10 +38,10 @@ public class ThriftMessageUtil {
   private final TProtocol protocol;
 
   public ThriftMessageUtil() {
-    this(64, 1.5);
+    this(64, 2);
   }
 
-  public ThriftMessageUtil(int initialCapacity, double growthCoefficient) {
+  public ThriftMessageUtil(int initialCapacity, int growthCoefficient) {
     // TODO does this make sense? better to push this down to the serialize method (accept the
     // transport as an argument)?
     this.transport = new AutoExpandingBufferWriteTransport(initialCapacity, growthCoefficient);
@@ -66,7 +66,7 @@ public class ThriftMessageUtil {
     } catch (TException e) {
       throw new IOException(e);
     }
-    return ByteBuffer.wrap(transport.getBuf().array(), 0, transport.getPos());
+    return ByteBuffer.wrap((transport.getBuffer()), 0, transport.getBufferPosition());
   }
 
   /**
