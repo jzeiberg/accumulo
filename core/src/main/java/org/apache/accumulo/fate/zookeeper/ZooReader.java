@@ -82,36 +82,20 @@ public class ZooReader implements IZooReader {
   public byte[] getData(String zPath, boolean watch, Stat stat)
       throws KeeperException, InterruptedException {
 
-    byte[] result = null;
+    byte[] result;
 
     // code that you want to retry until success OR retries are exhausted OR an unexpected exception
     // is thrown
-    Callable<Object> callable = () -> {
-      final Code code;
-      try {
-        final byte[] theFinalResult = getZooKeeper().getData(zPath, watch, stat);
-        return theFinalResult;
-      } catch (KeeperException e) {
-        code = e.code();
-        if (code == Code.CONNECTIONLOSS || code == Code.OPERATIONTIMEOUT
-            || code == Code.SESSIONEXPIRED) {
-          log.warn("Saw (possibly) transient exception communicating with ZooKeeper", e);
-          throw e;
-        }
-      }
-
-      return code;
-    };
+    Callable<byte[]> callable = () -> getZooKeeper().getData(zPath, watch, stat);
 
     RetryConfig config = new com.evanlennick.retry4j.config.RetryConfigBuilder()
-        .retryOnSpecificExceptions(KeeperException.class)
-        .retryOnSpecificExceptions(InterruptedException.class).withMaxNumberOfTries(19)
-        .withDelayBetweenTries(1000, ChronoUnit.MILLIS).build();
+        .retryOnAnyException().withMaxNumberOfTries(10)
+        .withDelayBetweenTries(250, ChronoUnit.MILLIS).withFixedBackoff().build();
 
     try {
       // the result of the callable logic, if it returns one
-      Status<Object> status = new CallExecutorBuilder().config(config).build().execute(callable);
-      result = (byte[]) status.getResult();
+      Status<byte[]> status = new CallExecutorBuilder().config(config).build().execute(callable);
+      result = status.getResult();
 
     } catch (RetriesExhaustedException ree) {
       // the call exhausted all tries without succeeding
