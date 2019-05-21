@@ -39,8 +39,6 @@ import com.evanlennick.retry4j.config.RetryConfig;
 import com.evanlennick.retry4j.exception.RetriesExhaustedException;
 import com.evanlennick.retry4j.exception.UnexpectedException;
 
-import jdk.nashorn.internal.runtime.regexp.joni.exception.InternalException;
-
 public class ZooReader implements IZooReader {
   private static final Logger log = LoggerFactory.getLogger(ZooReader.class);
 
@@ -82,7 +80,7 @@ public class ZooReader implements IZooReader {
   public byte[] getData(String zPath, boolean watch, Stat stat)
       throws KeeperException, InterruptedException {
 
-    byte[] result;
+    byte[] result = null;
 
     // code that you want to retry until success OR retries are exhausted OR an unexpected exception
     // is thrown
@@ -96,15 +94,11 @@ public class ZooReader implements IZooReader {
       // the result of the callable logic, if it returns one
       Status<byte[]> status = new CallExecutorBuilder().config(config).build().execute(callable);
       result = status.getResult();
-
-    } catch (RetriesExhaustedException ree) {
-      // the call exhausted all tries without succeeding
-      throw ree;
-    } catch (UnexpectedException ue) {
-      // the call threw an unexpected exception
-      throw ue;
-    } catch (InternalException ie) {
-      throw ie;
+    } catch (RetriesExhaustedException e) {
+      log.info("Failed! All retries exhausted...");
+    } catch (UnexpectedException e) {
+      log.info("Failed! An unexpected exception was encountered...");
+      e.printStackTrace();
     }
 
     return result;
