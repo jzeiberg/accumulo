@@ -16,7 +16,9 @@
  */
 package org.apache.accumulo.fate.zookeeper;
 
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,6 +33,13 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.evanlennick.retry4j.*;
+import com.evanlennick.retry4j.config.RetryConfig;
+import com.evanlennick.retry4j.exception.RetriesExhaustedException;
+import com.evanlennick.retry4j.exception.UnexpectedException;
+
+import jdk.nashorn.internal.runtime.regexp.joni.exception.InternalException;
 
 public class ZooReader implements IZooReader {
   private static final Logger log = LoggerFactory.getLogger(ZooReader.class);
@@ -72,22 +81,49 @@ public class ZooReader implements IZooReader {
   @Override
   public byte[] getData(String zPath, boolean watch, Stat stat)
       throws KeeperException, InterruptedException {
-    final Retry retry = getRetryFactory().createRetry();
-    while (true) {
+
+    byte[] result = null;
+
+    // code that you want to retry until success OR retries are exhausted OR an unexpected exception
+    // is thrown
+    Callable<Object> callable = () -> {
+      final Code code;
       try {
-        return getZooKeeper().getData(zPath, watch, stat);
+        final byte[] theFinalResult = getZooKeeper().getData(zPath, watch, stat);
+        return theFinalResult;
       } catch (KeeperException e) {
-        final Code code = e.code();
+        code = e.code();
         if (code == Code.CONNECTIONLOSS || code == Code.OPERATIONTIMEOUT
             || code == Code.SESSIONEXPIRED) {
-          retryOrThrow(retry, e);
-        } else {
+          log.warn("Saw (possibly) transient exception communicating with ZooKeeper", e);
           throw e;
         }
       }
 
-      retry.waitForNextAttempt();
+      return code;
+    };
+
+    RetryConfig config = new com.evanlennick.retry4j.config.RetryConfigBuilder()
+        .retryOnSpecificExceptions(KeeperException.class)
+        .retryOnSpecificExceptions(InterruptedException.class).withMaxNumberOfTries(19)
+        .withDelayBetweenTries(1000, ChronoUnit.MILLIS).build();
+
+    try {
+      // the result of the callable logic, if it returns one
+      Status<Object> status = new CallExecutorBuilder().config(config).build().execute(callable);
+      result = (byte[]) status.getResult();
+
+    } catch (RetriesExhaustedException ree) {
+      // the call exhausted all tries without succeeding
+      throw ree;
+    } catch (UnexpectedException ue) {
+      // the call threw an unexpected exception
+      throw ue;
+    } catch (InternalException ie) {
+      throw ie;
     }
+
+    return result;
   }
 
   @Override
