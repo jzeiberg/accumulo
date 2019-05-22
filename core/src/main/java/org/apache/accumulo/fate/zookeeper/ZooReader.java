@@ -86,19 +86,25 @@ public class ZooReader implements IZooReader {
     // is thrown
     Callable<byte[]> callable = () -> getZooKeeper().getData(zPath, watch, stat);
 
-    RetryConfig config = new com.evanlennick.retry4j.config.RetryConfigBuilder()
-        .retryOnAnyException().withMaxNumberOfTries(10)
-        .withDelayBetweenTries(250, ChronoUnit.MILLIS).withFixedBackoff().build();
+    RetryConfig config =
+        new com.evanlennick.retry4j.config.RetryConfigBuilder().withMaxNumberOfTries(100)
+            .withDelayBetweenTries(250, ChronoUnit.MILLIS).withFixedBackoff().build();
 
     try {
       // the result of the callable logic, if it returns one
       Status<byte[]> status = new CallExecutorBuilder().config(config).build().execute(callable);
       result = status.getResult();
+      System.out.println("The result is: " + result.toString());
+      int i = 0;
     } catch (RetriesExhaustedException e) {
       log.info("Failed! All retries exhausted...");
     } catch (UnexpectedException e) {
       log.info("Failed! An unexpected exception was encountered...");
+      log.info(e.getMessage());
       e.printStackTrace();
+    } catch (Exception e) {
+      System.out.println("Something else happened.");
+      throw e;
     }
 
     return result;
