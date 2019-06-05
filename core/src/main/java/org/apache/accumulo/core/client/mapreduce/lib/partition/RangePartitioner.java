@@ -25,6 +25,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Scanner;
@@ -139,7 +140,14 @@ public class RangePartitioner extends Partitioner<Text,Writable> implements Conf
    * points that represent ranges for partitioning
    */
   public static void setSplitFile(Job job, String file) {
-    URI uri = new Path(file).toUri();
+    URI uri;
+    try {
+      uri = new URI(file + "#" + CUTFILE_KEY);
+    } catch (URISyntaxException e) {
+      throw new IllegalStateException(
+              "Unable to add split file \"" + CUTFILE_KEY + "\" to distributed cache.");
+    }
+
     job.addCacheFile(uri);
     job.getConfiguration().set(CUTFILE_KEY, uri.getPath());
   }
