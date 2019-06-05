@@ -19,6 +19,7 @@ package org.apache.accumulo.core.client.mapreduce.lib.partition;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -31,6 +32,8 @@ import java.util.TreeSet;
 
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
@@ -38,6 +41,8 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Partitioner;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+import javax.imageio.IIOException;
 
 /**
  * Hadoop partitioner that uses ranges, and optionally sub-bins based on hashing.
@@ -90,26 +95,31 @@ public class RangePartitioner extends Partitioner<Text,Writable> implements Conf
       justification = "path provided by distributed cache framework, not user input")
   private synchronized Text[] getCutPoints() throws IOException {
     if (cutPointArray == null) {
+      Path path;
       String cutFileName = conf.get(CUTFILE_KEY);
-      Path[] cf = Job.getInstance().getLocalCacheFiles();
+      File tempFile = new File(CUTFILE_KEY);
+      if (tempFile.exists()) {
+        path = new Path(CUTFILE_KEY);
+      } else {
+        path = new Path(cutFileName);
+      }
 
-      if (cf != null) {
-        for (Path path : cf) {
-          if (path.toUri().getPath()
-              .endsWith(cutFileName.substring(cutFileName.lastIndexOf('/')))) {
-            TreeSet<Text> cutPoints = new TreeSet<>();
-            try (Scanner in = new Scanner(new BufferedReader(
-                new InputStreamReader(new FileInputStream(path.toString()), UTF_8)))) {
-              while (in.hasNextLine())
-                cutPoints.add(new Text(Base64.getDecoder().decode(in.nextLine())));
-            }
-            cutPointArray = cutPoints.toArray(new Text[cutPoints.size()]);
-            break;
-          }
+      if (path == null)
+        throw new FileNotFoundException("Cut point file not found in distributed cache");
+
+      TreeSet<Text> cutPoints = new TreeSet<>();
+      FileSystem fs = FileSystem.get(conf);
+      FSDataInputStream inputStream = fs.open(path);
+      try (Scanner in = new Scanner(inputStream)) {
+        while (in.hasNextLine()) {
+          cutPoints.add(new Text(Base64.getDecoder().decode(in.nextLine())));
         }
       }
+
+      cutPointArray = cutPoints.toArray(new Text[cutPoints.size()]);
+
       if (cutPointArray == null)
-        throw new FileNotFoundException(cutFileName + " not found in distributed cache");
+        throw new IIOException("Cutpoint array not properly created from file" + path.getName());
     }
     return cutPointArray;
   }
