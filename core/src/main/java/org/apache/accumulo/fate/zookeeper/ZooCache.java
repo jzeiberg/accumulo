@@ -240,10 +240,13 @@ public class ZooCache {
   }
 
   private abstract class ZooRunnable<T> {
+
+    public boolean sessionExpired = false;
+
     /**
      * Runs an operation against ZooKeeper. Retries are performed by the retry method when
      * KeeperExceptions occur.
-     *
+     * <p>
      * Changes were made in ACCUMULO-4388 so that the run method no longer accepts Zookeeper as an
      * argument, and instead relies on the ZooRunnable implementation to call
      * {@link #getZooKeeper()}. Performing the call to retrieving a ZooKeeper Session after caches
@@ -266,7 +269,7 @@ public class ZooCache {
 
       int sleepTime = 100;
 
-      while (true) {
+      while (!sessionExpired) {
 
         try {
           return run();
@@ -274,10 +277,12 @@ public class ZooCache {
           final Code code = e.code();
           if (code == Code.NONODE) {
             log.error("Looked up non-existent node in cache " + e.getPath(), e);
-          } else if (code == Code.CONNECTIONLOSS || code == Code.OPERATIONTIMEOUT
-              || code == Code.SESSIONEXPIRED) {
+          } else if (code == Code.CONNECTIONLOSS || code == Code.OPERATIONTIMEOUT) {
             log.warn("Saw (possibly) transient exception communicating with ZooKeeper, will retry",
                 e);
+          } else if (code == Code.SESSIONEXPIRED) {
+            log.warn("Zookeeper session has expired -- need to restart session");
+            sessionExpired = true;
           } else {
             log.warn("Zookeeper error, will retry", e);
           }
@@ -298,8 +303,9 @@ public class ZooCache {
           sleepTime = (int) (sleepTime + sleepTime * secureRandom.nextDouble());
         }
       }
-    }
 
+      return null;
+    }
   }
 
   /**
@@ -339,7 +345,13 @@ public class ZooCache {
           immutableCache = new ImmutableCacheCopies(++updateCount, immutableCache, childrenCache);
           return children;
         } catch (KeeperException ke) {
-          if (ke.code() != Code.NONODE) {
+          if (ke.code() == Code.SESSIONEXPIRED) {
+            log.warn("The Zookeeper session must be reestablished");
+            // TODO Must reestablish session instead of only returning null.
+            sessionExpired = true;
+            return null;
+
+          } else if (ke.code() != Code.NONODE) {
             throw ke;
           }
         } finally {
@@ -417,7 +429,15 @@ public class ZooCache {
               zstat = new ZcStat(stat);
             } catch (KeeperException.BadVersionException | KeeperException.NoNodeException e1) {
               throw new ConcurrentModificationException();
+            } catch (KeeperException ke) {
+              if (ke.code() == Code.SESSIONEXPIRED) {
+                cacheWriteLock.unlock();
+                log.warn("The Zookeeper session must be reestablished");
+                sessionExpired = true;
+                return null;
+              }
             }
+
             if (log.isTraceEnabled()) {
               log.trace("zookeeper contained {} {}", zPath,
                   (data == null ? null : new String(data, UTF_8)));

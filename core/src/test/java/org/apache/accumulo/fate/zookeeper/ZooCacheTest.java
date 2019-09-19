@@ -163,7 +163,7 @@ public class ZooCacheTest {
     expect(zk.exists(eq(ZPATH), anyObject(Watcher.class))).andReturn(existsStat);
     expect(zk.getData(eq(ZPATH), anyObject(Watcher.class), eq(existsStat))).andThrow(e);
     expect(zk.exists(eq(ZPATH), anyObject(Watcher.class))).andReturn(existsStat);
-    expect(zk.getData(eq(ZPATH), anyObject(Watcher.class), eq(existsStat))).andReturn(DATA);
+    expect(zk.getData(eq(ZPATH), anyObject(Watcher.class), eq(existsStat))).andReturn(null);
     replay(zk);
 
     assertArrayEquals(DATA, zc.get(ZPATH));
