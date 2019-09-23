@@ -66,12 +66,14 @@ public class ZooCache {
   public static class ZcStat {
     private long ephemeralOwner;
     private long mzxid;
+    private int version;
 
     public ZcStat() {}
 
     private ZcStat(Stat stat) {
       this.ephemeralOwner = stat.getEphemeralOwner();
       this.mzxid = stat.getMzxid();
+      this.version = stat.getVersion();
     }
 
     public long getEphemeralOwner() {
@@ -81,6 +83,7 @@ public class ZooCache {
     private void set(ZcStat cachedStat) {
       this.ephemeralOwner = cachedStat.ephemeralOwner;
       this.mzxid = cachedStat.mzxid;
+      this.version = cachedStat.version;
     }
 
     @VisibleForTesting
@@ -90,6 +93,10 @@ public class ZooCache {
 
     public long getMzxid() {
       return mzxid;
+    }
+
+    public int getVersion() {
+      return version;
     }
   }
 
@@ -413,8 +420,24 @@ public class ZooCache {
             }
           } else {
             try {
-              data = zooKeeper.getData(zPath, watcher, stat);
-              zstat = new ZcStat(stat);
+              if (lic != null && lic.statCache != null && lic.statCache.containsKey(zPath)
+                  && lic.statCache.get(zPath).getVersion() == stat.getVersion()) {
+                if (lic.cache.containsKey(zPath)) {
+                  data = lic.cache.get(zPath);
+                  if (data == null) {
+                    log.trace("the zoocache had a null data value for " + zPath);
+                    data = zooKeeper.getData(zPath, watcher, stat);
+
+                  } else
+                    log.info(zPath
+                        + "data was in cache and is the same version don't had to do a getData");
+                }
+                zstat = new ZcStat(stat);
+
+              } else {
+                data = zooKeeper.getData(zPath, watcher, stat);
+                zstat = new ZcStat(stat);
+              }
             } catch (KeeperException.BadVersionException | KeeperException.NoNodeException e1) {
               throw new ConcurrentModificationException();
             }

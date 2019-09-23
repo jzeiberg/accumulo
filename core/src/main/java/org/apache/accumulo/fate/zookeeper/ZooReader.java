@@ -17,6 +17,7 @@
 package org.apache.accumulo.fate.zookeeper;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -37,6 +38,39 @@ public class ZooReader implements IZooReader {
   protected String keepers;
   protected int timeout;
   private final RetryFactory retryFactory;
+  private ConcurrentHashMap<String,ZooNode> nodeVersionMap = new ConcurrentHashMap<>();
+
+  public static class ZooNode {
+    private byte[] data;
+    private Stat zooStats;
+
+    public ZooNode(byte[] theData, Stat theNewestStat) {
+      this.data = theData;
+      this.zooStats = theNewestStat;
+    }
+
+    public ZooNode(ZooNode nodeToCopy) {
+      this.data = nodeToCopy.data;
+      this.zooStats = nodeToCopy.zooStats;
+    }
+
+    public byte[] getData() {
+      return data;
+    }
+
+    public void setData(byte[] data) {
+      this.data = data;
+    }
+
+    public Stat getZooStats() {
+      return zooStats;
+    }
+
+    public void setZooStats(Stat zooStats) {
+      this.zooStats = zooStats;
+    }
+
+  }
 
   protected ZooKeeper getSession(String keepers, int timeout, String scheme, byte[] auth) {
     return ZooSession.getSession(keepers, timeout, scheme, auth);
@@ -73,7 +107,26 @@ public class ZooReader implements IZooReader {
     final Retry retry = getRetryFactory().createRetry();
     while (true) {
       try {
-        return getZooKeeper().getData(zPath, watch, stat);
+        log.trace("call to zookeeper.getData for " + zPath
+            + (watch ? " -- Setting a watcher" : "notsetting watch"));
+        Stat localstat = getZooKeeper().exists(zPath, false);
+
+        byte[] theData;
+
+        if (localstat != null && nodeVersionMap.containsKey(zPath)
+            && nodeVersionMap.get(zPath).getZooStats().getVersion() == localstat.getVersion()
+            && nodeVersionMap.get(zPath).getZooStats().getCversion() == localstat.getCversion()) {
+          log.trace(
+              "Pulling node from ZooReader cache for node " + zPath + " out of ZooReader cache");
+          theData = nodeVersionMap.get(zPath).getData();
+
+        } else {
+          log.trace("Pulling data from zookeeper to get data for " + zPath);
+          theData = getZooKeeper().getData(zPath, watch, stat);
+        }
+
+        return theData;
+
       } catch (KeeperException e) {
         final Code code = e.code();
         if (code == Code.CONNECTIONLOSS || code == Code.OPERATIONTIMEOUT
