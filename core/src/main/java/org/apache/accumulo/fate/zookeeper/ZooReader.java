@@ -107,22 +107,45 @@ public class ZooReader implements IZooReader {
     final Retry retry = getRetryFactory().createRetry();
     while (true) {
       try {
-        log.trace("call to zookeeper.getData for " + zPath
-            + (watch ? " -- Setting a watcher" : "notsetting watch"));
+
         Stat localstat = getZooKeeper().exists(zPath, false);
 
         byte[] theData;
 
+        if (localstat != null)
+          log.info("the path exists in zookeeper");
+        else
+          log.info("The path does not exist in zookeeper");
+
         if (localstat != null && nodeVersionMap.containsKey(zPath)
             && nodeVersionMap.get(zPath).getZooStats().getVersion() == localstat.getVersion()
             && nodeVersionMap.get(zPath).getZooStats().getCversion() == localstat.getCversion()) {
-          log.trace(
-              "Pulling node from ZooReader cache for node " + zPath + " out of ZooReader cache");
+          log.info("Pulling znode data from ZooReader cache for node " + zPath
+              + " -- Did not have to call zookeeper getData");
           theData = nodeVersionMap.get(zPath).getData();
 
         } else {
-          log.trace("Pulling data from zookeeper to get data for " + zPath);
+          log.info("Call to zookeeper.getData for " + zPath
+              + (watch ? " -- Setting a watcher" : " Not setting watch"));
+
           theData = getZooKeeper().getData(zPath, watch, stat);
+
+          if (theData == null)
+            log.info("The data from zookeeper.getData is null");
+
+          if (!nodeVersionMap.containsKey(zPath))
+            log.info("Adding znode to reader cache");
+          else
+            log.info("Refreshing znode in reader cache");
+
+          if (stat == null) {
+            log.info(
+                "The Stat object from zookeeper.getData was null - initializing Stat object in ZooReader cache");
+            stat = new Stat();
+          }
+
+          nodeVersionMap.put(zPath, new ZooNode(theData, stat));
+
         }
 
         return theData;
