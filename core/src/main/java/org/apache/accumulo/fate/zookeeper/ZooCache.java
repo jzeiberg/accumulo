@@ -24,6 +24,7 @@ import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -46,6 +47,8 @@ import com.google.common.base.Preconditions;
  */
 public class ZooCache {
   private static final Logger log = LoggerFactory.getLogger(ZooCache.class);
+
+  private ConcurrentHashMap<String,ZooReader.ZooNode> nodeVersionMap = new ConcurrentHashMap<>();
 
   private final ZCacheWatcher watcher = new ZCacheWatcher();
   private final Watcher externalWatcher;
@@ -163,10 +166,30 @@ public class ZooCache {
 
       switch (event.getType()) {
         case NodeDataChanged:
+          try {
+            log.info("Putting updated node in nodeVersionMap");
+            Stat stat = getZooKeeper().exists(event.getPath(), false);
+            byte[] data = event.getPath().getBytes();
+            ZcStat zstat = new ZcStat(stat);
+            nodeVersionMap.put(event.getPath(), new ZooReader.ZooNode(data, stat));
+
+            put(event.getPath(), data, zstat);
+            copyStats(zstat, statCache.get(event.getPath()));
+            break;
+          } catch (KeeperException e) {
+            break;
+          } catch (InterruptedException ie) {
+            break;
+          } finally {
+            break;
+          }
         case NodeChildrenChanged:
+          getChildren(event.getPath());
+          break;
         case NodeCreated:
         case NodeDeleted:
           remove(event.getPath());
+          nodeVersionMap.remove(event.getPath());
           break;
         case None:
           switch (event.getState()) {
@@ -412,30 +435,35 @@ public class ZooCache {
         cacheWriteLock.lock();
         try {
           final ZooKeeper zooKeeper = getZooKeeper();
-          Stat stat = zooKeeper.exists(zPath, watcher);
+          Stat stat = zooKeeper.exists(zPath, false);
           byte[] data = null;
           if (stat == null) {
             if (log.isTraceEnabled()) {
               log.trace("zookeeper did not contain {}", zPath);
             }
+
+            log.info("Calling zookeeper.exists with a watcher");
+            zooKeeper.exists(zPath, watcher);
+
           } else {
             try {
-              if (lic != null && lic.statCache != null && lic.statCache.containsKey(zPath)
-                  && lic.statCache.get(zPath).getVersion() == stat.getVersion()) {
-                if (lic.cache.containsKey(zPath)) {
-                  data = lic.cache.get(zPath);
-                  if (data == null) {
-                    log.trace("the zoocache had a null data value for " + zPath);
-                    data = zooKeeper.getData(zPath, watcher, stat);
+              log.info("Called zookeeper.exists without a watcher");
 
-                  } else
-                    log.info(zPath
-                        + "data was in cache and is the same version don't had to do a getData");
-                }
-                zstat = new ZcStat(stat);
+              log.info("nodeVersionMap has " + nodeVersionMap.keySet().size() + " elements");
+              log.info("lic.cache has " + lic.cache.keySet().size() + " elements");
+
+              if (cache.containsKey(zPath) && statCache.containsKey(zPath)
+                  && statCache.get(zPath).getVersion() == stat.getVersion()) {
+
+                data = nodeVersionMap.get(zPath).getData();
+                log.info("Data was pulled from cache without calling getData"
+                    + (watcher != null ? " with watcher" : "without watcher"));
 
               } else {
+                log.info(
+                    "Called getData " + (watcher != null ? " with watcher" : "without watcher"));
                 data = zooKeeper.getData(zPath, watcher, stat);
+                nodeVersionMap.put(zPath, new ZooReader.ZooNode(data, stat));
                 zstat = new ZcStat(stat);
               }
             } catch (KeeperException.BadVersionException | KeeperException.NoNodeException e1) {
