@@ -157,9 +157,10 @@ public class ZooCache {
       switch (event.getType()) {
         case NodeDataChanged:
           log.info("In ZCacheWatcher:NodeDataChanged case statement.");
-          Stat freshStat;
+          Stat freshStat = new Stat();
+          byte[] data = null;
           try {
-            freshStat = getZooKeeper().exists(event.getPath(), watcher);
+            data = getZooKeeper().getData(event.getPath(), watcher, freshStat);
           } catch (InterruptedException ie) {
             remove(event.getPath());
             break;
@@ -168,13 +169,11 @@ public class ZooCache {
             break;
           }
 
-          if (freshStat != null) {
+          if (data != null) {
             ZcStat newZcStat = new ZcStat(freshStat);
-            // cacheWriteLock.lock();
             log.info("Refreshing the ZooCache.cache data " + event.getPath());
-            put(event.getPath(), event.getPath().getBytes(), newZcStat);
+            put(event.getPath(), data, newZcStat);
             copyStats(statCache.get(event.getPath()), newZcStat);
-            // cacheWriteLock.unlock();
 
           } else {
             remove(event.getPath());
