@@ -157,24 +157,28 @@ public class ZooCache {
       switch (event.getType()) {
         case NodeDataChanged:
           log.info("In ZCacheWatcher:NodeDataChanged case statement.");
-          Stat freshStat;
+          Stat freshStat = new Stat();
+          byte[] data = null;
           try {
-            freshStat = getZooKeeper().exists(event.getPath(), watcher);
+            log.info("Calling zookeeper.getData inside NodeDataChanged");
+            data = getZooKeeper().getData(event.getPath(), watcher, freshStat);
+            log.info("ZCacheWatcher:NodeDataChanged successfully called getData");
           } catch (InterruptedException ie) {
+            log.info("Threw InteruuptedException in NodeDataChanged");
             remove(event.getPath());
             break;
           } catch (KeeperException ke) {
+            log.info("Threw KeeperException in NodeDataChanged");
             remove(event.getPath());
             break;
           }
 
-          if (freshStat != null) {
+          if (data != null) {
             ZcStat newZcStat = new ZcStat(freshStat);
-            // cacheWriteLock.lock();
-            log.info("Refreshing the ZooCache.cache data " + event.getPath());
-            put(event.getPath(), event.getPath().getBytes(), newZcStat);
+            log.info("ZCacheWatcher:NodeDataChanged Refreshing the ZooCache.cache data for path "
+                + event.getPath());
+            put(event.getPath(), data, newZcStat);
             copyStats(statCache.get(event.getPath()), newZcStat);
-            // cacheWriteLock.unlock();
 
           } else {
             remove(event.getPath());
@@ -182,6 +186,7 @@ public class ZooCache {
           }
           break;
         case NodeChildrenChanged:
+          getChildren(event.getPath());
         case NodeCreated:
         case NodeDeleted:
           remove(event.getPath());
@@ -345,6 +350,7 @@ public class ZooCache {
         // only read volatile once for consistency
         ImmutableCacheCopies lic = immutableCache;
         if (lic.childrenCache.containsKey(zPath)) {
+          log.info("Using child cache to get data for " + zPath);
           return lic.childrenCache.get(zPath);
         }
 
@@ -416,8 +422,12 @@ public class ZooCache {
             zstat = lic.statCache.get(zPath);
             copyStats(status, zstat);
           }
+          log.info("Cache size is " + lic.cache.size());
+          log.info("using the lic.cache to get the value for " + zPath);
           return val;
         }
+
+        log.info(zPath + " was not cached so we have to call exists and get data again");
 
         /*
          * The following call to exists() is important, since we are caching that a node does not
