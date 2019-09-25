@@ -156,32 +156,20 @@ public class ZooCache {
 
       switch (event.getType()) {
         case NodeDataChanged:
-          log.info("In ZCacheWatcher:NodeDataChanged case statement.");
-          Stat freshStat = new Stat();
-          byte[] data = null;
-          try {
-            data = getZooKeeper().getData(event.getPath(), watcher, freshStat);
-          } catch (InterruptedException ie) {
-            remove(event.getPath());
-            break;
-          } catch (KeeperException ke) {
-            remove(event.getPath());
-            break;
-          }
-
-          if (data != null) {
-            ZcStat newZcStat = new ZcStat(freshStat);
-            log.info("Refreshing the ZooCache.cache data " + event.getPath());
-            put(event.getPath(), data, newZcStat);
-            copyStats(statCache.get(event.getPath()), newZcStat);
-
-          } else {
-            remove(event.getPath());
-
-          }
+          log.info("Do zookeeper.get() in ZCacheWatcher:NodeDataChanged.");
+          remove(event.getPath());
+          get(event.getPath());
           break;
         case NodeChildrenChanged:
+          log.info("Do the zookeeper.getChildren call in here in NodeChildrenChanged");
+          remove(event.getPath());
+          getChildren(event.getPath());
+          break;
         case NodeCreated:
+          log.info("Do the zookeeper.get and getChildren call here.");
+          get(event.getPath());
+          getChildren(event.getPath());
+          break;
         case NodeDeleted:
           remove(event.getPath());
           break;
@@ -344,6 +332,7 @@ public class ZooCache {
         // only read volatile once for consistency
         ImmutableCacheCopies lic = immutableCache;
         if (lic.childrenCache.containsKey(zPath)) {
+          log.info("Using child cache to get data for " + zPath);
           return lic.childrenCache.get(zPath);
         }
 
@@ -415,6 +404,7 @@ public class ZooCache {
             zstat = lic.statCache.get(zPath);
             copyStats(status, zstat);
           }
+          log.info("using the cache to get the value for " + zPath);
           return val;
         }
 
