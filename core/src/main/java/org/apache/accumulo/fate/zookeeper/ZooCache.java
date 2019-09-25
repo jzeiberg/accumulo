@@ -156,6 +156,31 @@ public class ZooCache {
 
       switch (event.getType()) {
         case NodeDataChanged:
+          log.info("In ZCacheWatcher:NodeDataChanged case statement.");
+          Stat freshStat;
+          try {
+            freshStat = getZooKeeper().exists(event.getPath(), watcher);
+          } catch (InterruptedException ie) {
+            remove(event.getPath());
+            break;
+          } catch (KeeperException ke) {
+            remove(event.getPath());
+            break;
+          }
+
+          if (freshStat != null) {
+            ZcStat newZcStat = new ZcStat(freshStat);
+            // cacheWriteLock.lock();
+            log.info("Refreshing the ZooCache.cache data " + event.getPath());
+            put(event.getPath(), event.getPath().getBytes(), newZcStat);
+            copyStats(statCache.get(event.getPath()), newZcStat);
+            // cacheWriteLock.unlock();
+
+          } else {
+            remove(event.getPath());
+
+          }
+          break;
         case NodeChildrenChanged:
         case NodeCreated:
         case NodeDeleted:
