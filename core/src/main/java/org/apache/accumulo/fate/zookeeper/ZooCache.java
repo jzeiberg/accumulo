@@ -186,8 +186,19 @@ public class ZooCache {
           }
           break;
         case NodeChildrenChanged:
-          getChildren(event.getPath());
+          remove(event.getPath());
+          get(event.getPath());
+          List<String> children = getChildren(event.getPath());
+          if (children != null)
+            for (String child : children) {
+              log.info("NodeChildrenChanged - need to update this child" + child);
+              remove(event.getPath() + "/" + child);
+              get(event.getPath() + "/" + child);
+            }
+          break;
         case NodeCreated:
+          get(event.getPath());
+          break;
         case NodeDeleted:
           remove(event.getPath());
           break;
@@ -424,6 +435,13 @@ public class ZooCache {
           }
           log.info("Cache size is " + lic.cache.size());
           log.info("using the lic.cache to get the value for " + zPath);
+          try {
+            if (val != null)
+              log.info("ZooCache.get - The value from the cache is: " + new String(val, UTF_8));
+          } catch (Exception e) {
+            log.info("Exeception throw trying to output value from cache in ZooCache.get function "
+                + e.getMessage());
+          }
           return val;
         }
 
@@ -584,9 +602,9 @@ public class ZooCache {
     Preconditions.checkState(!closed);
     cacheWriteLock.lock();
     try {
-      cache.keySet().removeIf(path -> path.startsWith(zPath));
-      childrenCache.keySet().removeIf(path -> path.startsWith(zPath));
-      statCache.keySet().removeIf(path -> path.startsWith(zPath));
+      cache.keySet().removeIf(path -> path.equals(zPath));
+      childrenCache.keySet().removeIf(path -> path.equals(zPath));
+      statCache.keySet().removeIf(path -> path.equals(zPath));
 
       immutableCache = new ImmutableCacheCopies(++updateCount, cache, statCache, childrenCache);
     } finally {
