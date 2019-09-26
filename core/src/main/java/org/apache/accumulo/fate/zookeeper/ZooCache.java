@@ -438,6 +438,8 @@ public class ZooCache {
           try {
             if (val != null)
               log.info("ZooCache.get - The value from the cache is: " + new String(val, UTF_8));
+            else
+              log.info("ZooCache.get = The value from the cache is null");
           } catch (Exception e) {
             log.info("Exeception throw trying to output value from cache in ZooCache.get function "
                 + e.getMessage());
@@ -476,6 +478,9 @@ public class ZooCache {
                   (data == null ? null : new String(data, UTF_8)));
             }
           }
+
+          log.info("ZooCache.get() is setting " + zPath + " with "
+              + (data == null ? null : new String(data, UTF_8)));
           put(zPath, data, zstat);
           copyStats(status, zstat);
           return data;
@@ -602,9 +607,9 @@ public class ZooCache {
     Preconditions.checkState(!closed);
     cacheWriteLock.lock();
     try {
-      cache.keySet().removeIf(path -> path.equals(zPath));
-      childrenCache.keySet().removeIf(path -> path.equals(zPath));
-      statCache.keySet().removeIf(path -> path.equals(zPath));
+      cache.keySet().removeIf(path -> path.startsWith(zPath));
+      childrenCache.keySet().removeIf(path -> path.startsWith(zPath));
+      statCache.keySet().removeIf(path -> path.startsWith(zPath));
 
       immutableCache = new ImmutableCacheCopies(++updateCount, cache, statCache, childrenCache);
     } finally {
