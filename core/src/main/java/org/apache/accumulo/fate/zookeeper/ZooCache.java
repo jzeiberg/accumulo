@@ -391,8 +391,21 @@ public class ZooCache {
             zstat = lic.statCache.get(zPath);
             copyStats(status, zstat);
           }
+          log.info("Cache size is " + lic.cache.size());
+          log.info("using the lic.cache to get the value for " + zPath);
+          try {
+            if (val != null)
+              log.info("ZooCache.get - The value from the cache is: " + new String(val, UTF_8));
+            else
+              log.info("ZooCache.get = The value from the cache is null");
+          } catch (Exception e) {
+            log.info("Exeception throw trying to output value from cache in ZooCache.get function "
+                + e.getMessage());
+          }
           return val;
         }
+
+        log.info(zPath + " was not cached so we have to call exists and get data again");
 
         /*
          * The following call to exists() is important, since we are caching that a node does not
