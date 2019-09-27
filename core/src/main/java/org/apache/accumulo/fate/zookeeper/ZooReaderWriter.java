@@ -45,8 +45,6 @@ public class ZooReaderWriter extends ZooReader implements IZooReaderWriter {
   private final String scheme;
   private final byte[] auth;
   private final ZooKeeperConnectionInfo info;
-  // private static Pattern TABLE_SETTING_CONFIG_PATTERN =
-  // Pattern.compile("/accumulo/[0-9a-z-]+/tables/([0-9]+|\\+r|!0|\\+rep)/conf/table.*");
 
   @Override
   public ZooKeeper getZooKeeper() {
@@ -162,8 +160,6 @@ public class ZooReaderWriter extends ZooReader implements IZooReaderWriter {
         final Retry retry = getRetryFactory().createRetry();
         try {
           getZooKeeper().create(zPath, createValue, acl, CreateMode.PERSISTENT);
-          log.info("ZooZeaderWriter.mutate creating zoonode " + zPath);
-
           return createValue;
         } catch (KeeperException ex) {
           final Code code = ex.code();
