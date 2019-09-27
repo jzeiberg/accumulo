@@ -107,7 +107,8 @@ public class TableConfiguration extends AccumuloConfiguration {
   }
 
   private String getPath() {
-    return context.getZooKeeperRoot() + Constants.ZTABLES + "/" + tableId + Constants.ZTABLE_CONF;
+    return context.getZooKeeperRoot() + Constants.TABLE_CONFIGS + Constants.ZTABLES + "/" + tableId
+        + Constants.ZTABLE_CONF;
   }
 
   @Override

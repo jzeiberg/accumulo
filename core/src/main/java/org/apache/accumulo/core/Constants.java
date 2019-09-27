@@ -88,6 +88,8 @@ public class Constants {
 
   public static final String ZTABLE_LOCKS = "/table_locks";
 
+  public static final String TABLE_CONFIGS = "/table_configs";
+
   public static final String BULK_PREFIX = "b-";
   public static final String BULK_RENAME_FILE = "renames.json";
   public static final String BULK_LOAD_MAPPING = "loadmap.json";

@@ -28,6 +28,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.regex.Pattern;
 
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
@@ -62,6 +63,9 @@ public class ZooCache {
   private final SecureRandom secureRandom = new SecureRandom();
 
   private volatile boolean closed = false;
+
+  public static Pattern TABLE_SETTING_CONFIG_PATTERN =
+      Pattern.compile("(/accumulo/[0-9a-z-]+)/tables/([0-9]+|\\+r|!0|\\+rep)/conf/table.*");
 
   public static class ZcStat {
     private long ephemeralOwner;
@@ -148,6 +152,7 @@ public class ZooCache {
   }
 
   private class ZCacheWatcher implements Watcher {
+
     @Override
     public void process(WatchedEvent event) {
       if (log.isTraceEnabled()) {
@@ -159,6 +164,7 @@ public class ZooCache {
         case NodeChildrenChanged:
         case NodeCreated:
         case NodeDeleted:
+          log.info("ZCacheWatcher: process(event) - NodeDeleted Event removing " + event.getPath());
           remove(event.getPath());
           break;
         case None:

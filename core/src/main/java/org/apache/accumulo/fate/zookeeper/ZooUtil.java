@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
 
 import org.apache.accumulo.core.Constants;
 import org.apache.accumulo.core.conf.AccumuloConfiguration;
@@ -311,6 +312,29 @@ public class ZooUtil {
     while (true) {
       try {
         getZooKeeper(info).create(zPath, data, acls, mode);
+        log.info("Creating zoonode in ZooUtil.putData :" + zPath);
+
+        Matcher configMatcher = ZooCache.TABLE_SETTING_CONFIG_PATTERN.matcher(zPath);
+        if (configMatcher.matches()) {
+          log.info("Matched the TABLE_SETTING_CONFIG_PATTERN " + zPath);
+          String pathPrefix = configMatcher.group(1);
+          log.info("ZooUtil.putData pathPrefix is " + pathPrefix);
+          if (!pathPrefix.isEmpty()) {
+            String newPath = zPath.replaceFirst(pathPrefix, pathPrefix + "/table_configs");
+            // log.info("Will attempt to add znode: " + newPath);
+            log.info("The path prefix is " + pathPrefix);
+            // getZooKeeper(info).create(newPath, data, acls, mode);
+            /*
+             * if (getZooKeeper(info).exists(pathPrefix + "/tableconfigs", true) == null) {
+             * log.info("attempting to create zookeeper path " + pathPrefix + "/tableconfigs");
+             * getZooKeeper(info).create(pathPrefix + "/tableconfigs", null, acls, mode);
+             * 
+             * }
+             */
+            // getZooKeeper(info).create(newPath, data, acls, mode);
+
+          }
+        }
         return true;
       } catch (KeeperException e) {
         final Code code = e.code();
@@ -456,6 +480,8 @@ public class ZooUtil {
     final Retry retry = RETRY_FACTORY.createRetry();
     while (true) {
       try {
+
+        log.info("Creating zoonode here ZooUtil.putPersistentSequential :" + zPath);
         return getZooKeeper(info).create(zPath, data, ZooUtil.PUBLIC,
             CreateMode.PERSISTENT_SEQUENTIAL);
       } catch (KeeperException e) {
@@ -476,6 +502,7 @@ public class ZooUtil {
     final Retry retry = RETRY_FACTORY.createRetry();
     while (true) {
       try {
+        log.info("Creating zoonode here ZooUtil.putEphemeralData :" + zPath);
         return getZooKeeper(info).create(zPath, data, ZooUtil.PUBLIC, CreateMode.EPHEMERAL);
       } catch (KeeperException e) {
         final Code c = e.code();
@@ -495,6 +522,7 @@ public class ZooUtil {
     final Retry retry = RETRY_FACTORY.createRetry();
     while (true) {
       try {
+        log.info("Creating zoonode here ZooUtil.putEphemeralSequential :" + zPath);
         return getZooKeeper(info).create(zPath, data, ZooUtil.PUBLIC,
             CreateMode.EPHEMERAL_SEQUENTIAL);
       } catch (KeeperException e) {
