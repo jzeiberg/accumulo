@@ -320,18 +320,21 @@ public class ZooUtil {
           String pathPrefix = configMatcher.group(1);
           log.info("ZooUtil.putData pathPrefix is " + pathPrefix);
           if (!pathPrefix.isEmpty()) {
-            String newPath = zPath.replaceFirst(pathPrefix, pathPrefix + "/table_configs");
+            zPath = zPath.replaceFirst(pathPrefix, pathPrefix + "/table_configs");
+            String partialPath =
+                pathPrefix + "/table_configs" + Constants.ZTABLES + configMatcher.group(3);
+
             // log.info("Will attempt to add znode: " + newPath);
             log.info("The path prefix is " + pathPrefix);
             // getZooKeeper(info).create(newPath, data, acls, mode);
-            /*
-             * if (getZooKeeper(info).exists(pathPrefix + "/tableconfigs", true) == null) {
-             * log.info("attempting to create zookeeper path " + pathPrefix + "/tableconfigs");
-             * getZooKeeper(info).create(pathPrefix + "/tableconfigs", null, acls, mode);
-             * 
-             * }
-             */
-            // getZooKeeper(info).create(newPath, data, acls, mode);
+            log.info("attempting to create zookeeper path " + partialPath);
+            if (getZooKeeper(info).exists(partialPath, true) == null) {
+              getZooKeeper(info).create(partialPath, new byte[0], acls, mode);
+              partialPath = partialPath + configMatcher.group(5);
+              getZooKeeper(info).create(partialPath, new byte[0], acls, mode);
+            }
+            log.info("attempting to create zookeeper path " + zPath);
+            getZooKeeper(info).create(zPath, data, acls, mode);
 
           }
         }
