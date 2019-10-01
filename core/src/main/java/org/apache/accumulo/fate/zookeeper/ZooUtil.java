@@ -311,9 +311,6 @@ public class ZooUtil {
     final Retry retry = RETRY_FACTORY.createRetry();
     while (true) {
       try {
-        getZooKeeper(info).create(zPath, data, acls, mode);
-        log.info("Creating zoonode in ZooUtil.putData :" + zPath);
-
         Matcher configMatcher = ZooCache.TABLE_SETTING_CONFIG_PATTERN.matcher(zPath);
         if (configMatcher.matches()) {
           log.info("Matched the TABLE_SETTING_CONFIG_PATTERN " + zPath);
@@ -330,14 +327,16 @@ public class ZooUtil {
             log.info("attempting to create zookeeper path " + partialPath);
             if (getZooKeeper(info).exists(partialPath, true) == null) {
               getZooKeeper(info).create(partialPath, new byte[0], acls, mode);
-              partialPath = partialPath + configMatcher.group(5);
+              partialPath = partialPath + Constants.ZTABLE_CONF;
               getZooKeeper(info).create(partialPath, new byte[0], acls, mode);
             }
-            log.info("attempting to create zookeeper path " + zPath);
-            getZooKeeper(info).create(zPath, data, acls, mode);
 
           }
         }
+
+        getZooKeeper(info).create(zPath, data, acls, mode);
+        log.info("Created zoonode in ZooUtil.putData :" + zPath);
+
         return true;
       } catch (KeeperException e) {
         final Code code = e.code();
