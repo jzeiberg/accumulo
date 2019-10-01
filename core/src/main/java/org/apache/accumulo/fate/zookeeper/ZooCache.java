@@ -64,7 +64,7 @@ public class ZooCache {
 
   private volatile boolean closed = false;
 
-  public static Pattern TABLE_SETTING_CONFIG_PATTERN =
+  public final static Pattern TABLE_SETTING_CONFIG_PATTERN =
       Pattern.compile("(/accumulo/[0-9a-z-]+)(/tables)(/([0-9]+|\\+r|!0|\\+rep))(/conf)/table.*");
 
   public static class ZcStat {
