@@ -85,7 +85,10 @@ public class TableManager {
     Pair<String,String> qualifiedTableName = Tables.qualify(tableName);
     tableName = qualifiedTableName.getSecond();
     String zTablePath = Constants.ZROOT + "/" + instanceId + Constants.ZTABLES + "/" + tableId;
+    // String zTableConfigPath = Constants.ZROOT + "/" + instanceId + Constants.TABLE_CONFIGS
+    // + Constants.ZTABLES + "/" + tableId;
     zoo.putPersistentData(zTablePath, new byte[0], existsPolicy);
+    // zoo.putPersistentData(zTableConfigPath, new byte[0], NodeExistsPolicy.SKIP);
     zoo.putPersistentData(zTablePath + Constants.ZTABLE_CONF, new byte[0], existsPolicy);
     zoo.putPersistentData(zTablePath + Constants.ZTABLE_NAMESPACE,
         namespaceId.canonical().getBytes(UTF_8), existsPolicy);
