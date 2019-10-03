@@ -28,7 +28,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.regex.Pattern;
 
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
@@ -63,9 +62,6 @@ public class ZooCache {
   private final SecureRandom secureRandom = new SecureRandom();
 
   private volatile boolean closed = false;
-
-  public final static Pattern TABLE_SETTING_CONFIG_PATTERN =
-      Pattern.compile("(/accumulo/[0-9a-z-]+)(/tables)(/([0-9]+|\\+r|!0|\\+rep))(/conf)/table.*");
 
   public static class ZcStat {
     private long ephemeralOwner;
@@ -152,7 +148,6 @@ public class ZooCache {
   }
 
   private class ZCacheWatcher implements Watcher {
-
     @Override
     public void process(WatchedEvent event) {
       if (log.isTraceEnabled()) {
@@ -164,7 +159,6 @@ public class ZooCache {
         case NodeChildrenChanged:
         case NodeCreated:
         case NodeDeleted:
-          log.info("ZCacheWatcher: process(event) - NodeDeleted Event removing " + event.getPath());
           remove(event.getPath());
           break;
         case None:
@@ -397,21 +391,8 @@ public class ZooCache {
             zstat = lic.statCache.get(zPath);
             copyStats(status, zstat);
           }
-          log.info("Cache size is " + lic.cache.size());
-          log.info("using the lic.cache to get the value for " + zPath);
-          try {
-            if (val != null)
-              log.info("ZooCache.get - The value from the cache is: " + new String(val, UTF_8));
-            else
-              log.info("ZooCache.get = The value from the cache is null");
-          } catch (Exception e) {
-            log.info("Exeception throw trying to output value from cache in ZooCache.get function "
-                + e.getMessage());
-          }
           return val;
         }
-
-        log.info(zPath + " was not cached so we have to call exists and get data again");
 
         /*
          * The following call to exists() is important, since we are caching that a node does not
