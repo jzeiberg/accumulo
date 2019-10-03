@@ -26,8 +26,12 @@ import org.apache.accumulo.fate.zookeeper.ZooUtil.NodeExistsPolicy;
 import org.apache.accumulo.fate.zookeeper.ZooUtil.NodeMissingPolicy;
 import org.apache.accumulo.server.ServerContext;
 import org.apache.zookeeper.KeeperException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TablePropUtil {
+
+  private static final Logger log = LoggerFactory.getLogger(TablePropUtil.class);
 
   public static boolean setTableProperty(ServerContext context, TableId tableId, String property,
       String value) throws KeeperException, InterruptedException {
@@ -46,6 +50,7 @@ public class TablePropUtil {
 
     // create the zk node for this property and set it's data to the specified value
     String zPath = zkTablePath + "/" + property;
+    log.info("TablePropUtil.setTableProperty - adding path to zookeeper: " + zPath);
     zoo.putPersistentData(zPath, value.getBytes(UTF_8), NodeExistsPolicy.OVERWRITE);
 
     return true;
@@ -64,6 +69,6 @@ public class TablePropUtil {
   }
 
   private static String getTablePath(String zkRoot, TableId tableId) {
-    return zkRoot + Constants.ZTABLES + "/" + tableId.canonical() + Constants.ZTABLE_CONF;
+    return zkRoot + Constants.TABLE_CONFIGS + Constants.ZTABLES + "/" + tableId.canonical();
   }
 }

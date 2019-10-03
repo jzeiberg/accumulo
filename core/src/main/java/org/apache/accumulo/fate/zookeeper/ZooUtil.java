@@ -29,7 +29,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
 
 import org.apache.accumulo.core.Constants;
 import org.apache.accumulo.core.conf.AccumuloConfiguration;
@@ -310,29 +309,27 @@ public class ZooUtil {
 
     final Retry retry = RETRY_FACTORY.createRetry();
     while (true) {
+
       try {
-        Matcher configMatcher = ZooCache.TABLE_SETTING_CONFIG_PATTERN.matcher(zPath);
-        if (configMatcher.matches()) {
-          log.info("Matched the TABLE_SETTING_CONFIG_PATTERN " + zPath);
-          String pathPrefix = configMatcher.group(1);
-          log.info("ZooUtil.putData pathPrefix is " + pathPrefix);
-          if (!pathPrefix.isEmpty()) {
-            zPath = zPath.replaceFirst(pathPrefix, pathPrefix + "/table_configs");
-            String partialPath =
-                pathPrefix + "/table_configs" + Constants.ZTABLES + configMatcher.group(3);
 
-            // log.info("Will attempt to add znode: " + newPath);
-            log.info("The path prefix is " + pathPrefix);
-            // getZooKeeper(info).create(newPath, data, acls, mode);
-            log.info("attempting to create zookeeper path " + partialPath);
-            if (getZooKeeper(info).exists(partialPath, true) == null) {
-              getZooKeeper(info).create(partialPath, new byte[0], acls, mode);
-              partialPath = partialPath + Constants.ZTABLE_CONF;
-              getZooKeeper(info).create(partialPath, new byte[0], acls, mode);
-            }
-
-          }
-        }
+        /*
+         * Matcher configMatcher = ZooCache.TABLE_SETTING_CONFIG_PATTERN.matcher(zPath); if
+         * (configMatcher.matches()) { log.info("Matched the TABLE_SETTING_CONFIG_PATTERN " +
+         * zPath); String pathPrefix = configMatcher.group(1);
+         * log.info("ZooUtil.putData pathPrefix is " + pathPrefix); if (!pathPrefix.isEmpty()) {
+         * zPath = zPath.replaceFirst(pathPrefix, pathPrefix + "/table_configs"); String partialPath
+         * = pathPrefix + "/table_configs" + Constants.ZTABLES + configMatcher.group(3);
+         * 
+         * // log.info("Will attempt to add znode: " + newPath); log.info("The path prefix is " +
+         * pathPrefix); // getZooKeeper(info).create(newPath, data, acls, mode);
+         * log.info("attempting to create zookeeper path " + partialPath); if
+         * (getZooKeeper(info).exists(partialPath, true) == null) {
+         * getZooKeeper(info).create(partialPath, new byte[0], acls, mode); partialPath =
+         * partialPath + Constants.ZTABLE_CONF; getZooKeeper(info).create(partialPath, new byte[0],
+         * acls, mode); }
+         * 
+         * } }
+         */
 
         getZooKeeper(info).create(zPath, data, acls, mode);
         log.info("Created zoonode in ZooUtil.putData :" + zPath);
