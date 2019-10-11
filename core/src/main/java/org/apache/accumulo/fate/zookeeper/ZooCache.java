@@ -63,6 +63,12 @@ public class ZooCache {
 
   private volatile boolean closed = false;
 
+  public static final String[] extraConfigs = {"table.split.endrow.size.max",
+      "table.groups.enabled", "table.split.threshold", "table.classpath.context",
+      "table.compaction.minor.logs.threshold", "table.balancer", "table.replication",
+      "table.majc.compaction.strategy", "tserver.memory.maps.native.enabled", "tserver.dir.memdump",
+      "tserver.walog.max.referenced"};
+
   public static class ZcStat {
     private long ephemeralOwner;
     private long mzxid;
@@ -402,18 +408,41 @@ public class ZooCache {
          * a special case that looks for Code.NONODE in the KeeperException, then non-existence can
          * not be cached.
          */
+
         cacheWriteLock.lock();
         try {
+
           final ZooKeeper zooKeeper = getZooKeeper();
-          Stat stat = zooKeeper.exists(zPath, watcher);
+
+          boolean watched = true;
           byte[] data = null;
+
+          for (String possiblyWatchedConfig : extraConfigs) {
+            Stat stat;
+            if (zPath.endsWith(possiblyWatchedConfig)) {
+              try {
+                stat = zooKeeper.exists(zPath, false);
+              } catch (KeeperException.BadVersionException | KeeperException.NoNodeException e1) {
+                throw new ConcurrentModificationException();
+              }
+              if (stat != null) {
+                watched = true;
+              } else {
+                watched = false;
+              }
+              break;
+            }
+          }
+
+          Stat stat = zooKeeper.exists(zPath, watched ? watcher : null);
+
           if (stat == null) {
             if (log.isTraceEnabled()) {
               log.trace("zookeeper did not contain {}", zPath);
             }
           } else {
             try {
-              data = zooKeeper.getData(zPath, watcher, stat);
+              data = zooKeeper.getData(zPath, watched ? watcher : null, stat);
               zstat = new ZcStat(stat);
             } catch (KeeperException.BadVersionException | KeeperException.NoNodeException e1) {
               throw new ConcurrentModificationException();
@@ -423,8 +452,10 @@ public class ZooCache {
                   (data == null ? null : new String(data, UTF_8)));
             }
           }
-          put(zPath, data, zstat);
-          copyStats(status, zstat);
+          if (watched) {
+            put(zPath, data, zstat);
+            copyStats(status, zstat);
+          }
           return data;
         } finally {
           cacheWriteLock.unlock();
