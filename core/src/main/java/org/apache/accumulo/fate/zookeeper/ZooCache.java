@@ -29,6 +29,7 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.accumulo.core.Constants;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.WatchedEvent;
@@ -402,18 +403,41 @@ public class ZooCache {
          * a special case that looks for Code.NONODE in the KeeperException, then non-existence can
          * not be cached.
          */
+
         cacheWriteLock.lock();
         try {
+
           final ZooKeeper zooKeeper = getZooKeeper();
-          Stat stat = zooKeeper.exists(zPath, watcher);
+
+          boolean watched = true;
           byte[] data = null;
+
+          for (String possiblyWatchedConfig : Constants.extraConfigs) {
+            Stat stat;
+            if (zPath.contains(possiblyWatchedConfig)) {
+              try {
+                stat = zooKeeper.exists(zPath, false);
+              } catch (KeeperException.BadVersionException | KeeperException.NoNodeException e1) {
+                throw new ConcurrentModificationException();
+              }
+              if (stat != null)
+                watched = true;
+              else {
+                watched = false;
+                break;
+              }
+            }
+          }
+
+          Stat stat = zooKeeper.exists(zPath, watched ? watcher : null);
+
           if (stat == null) {
             if (log.isTraceEnabled()) {
               log.trace("zookeeper did not contain {}", zPath);
             }
           } else {
             try {
-              data = zooKeeper.getData(zPath, watcher, stat);
+              data = zooKeeper.getData(zPath, watched ? watcher : null, stat);
               zstat = new ZcStat(stat);
             } catch (KeeperException.BadVersionException | KeeperException.NoNodeException e1) {
               throw new ConcurrentModificationException();

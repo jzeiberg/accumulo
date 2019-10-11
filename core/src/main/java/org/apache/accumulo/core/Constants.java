@@ -118,4 +118,9 @@ public class Constants {
   public static final String HDFS_TABLES_DIR = "/tables";
 
   public static final int DEFAULT_VISIBILITY_CACHE_SIZE = 1000;
+
+  public static String[] extraConfigs = {"table.split.endrow.size.max", "table.groups.enabled",
+      "table.split.threshold", "table.classpath.context", "table.compaction.minor.logs.threshold",
+      "table.balancer", "table.replication", "table.majc.compaction.strategy",
+      "tserver.memory.maps.native.enabled", "tserver.dir.memdump", "tserver.walog.max.referenced"};
 }
