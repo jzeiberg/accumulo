@@ -414,25 +414,10 @@ public class ZooCache {
 
           final ZooKeeper zooKeeper = getZooKeeper();
 
-          boolean watched = true;
+
           byte[] data = null;
 
-          for (String possiblyWatchedConfig : extraConfigs) {
-            Stat stat;
-            if (zPath.endsWith(possiblyWatchedConfig)) {
-              try {
-                stat = zooKeeper.exists(zPath, false);
-              } catch (KeeperException.BadVersionException | KeeperException.NoNodeException e1) {
-                throw new ConcurrentModificationException();
-              }
-              if (stat != null) {
-                watched = true;
-              } else {
-                watched = false;
-              }
-              break;
-            }
-          }
+          boolean watched = isWatched(zooKeeper, zPath);
 
           Stat stat = zooKeeper.exists(zPath, watched ? watcher : null);
 
@@ -464,6 +449,37 @@ public class ZooCache {
     };
 
     return zr.retry();
+  }
+
+  /*
+  Some of the table configuration parameters are possibly not in ZooKeeper yet and even though you are able
+  you should not put a watcher on them to observer the NodeCreated event. If you do that and the ZNode
+  for that configuration is never created,  you will have no way to delete the watcher you created for it in
+  Zookeeper.  Stranded watchers for never created table configs is causing memory leaks in Accumulo instances
+  that create and delete tables at a high rate.
+   */
+
+  private boolean isWatched(ZooKeeper zooKeeper, String zPath) throws KeeperException, InterruptedException {
+
+    boolean watched = true;
+
+    for (String possiblyWatchedConfig : extraConfigs) {
+      Stat stat;
+      if (zPath.endsWith(possiblyWatchedConfig)) {
+        try {
+          stat = zooKeeper.exists(zPath, false);
+        } catch (KeeperException.BadVersionException | KeeperException.NoNodeException e1) {
+          throw new ConcurrentModificationException();
+        }
+        if (stat != null) {
+          watched = true;
+        } else {
+          watched = false;
+        }
+        break;
+      }
+    }
+    return watched;
   }
 
   /**
