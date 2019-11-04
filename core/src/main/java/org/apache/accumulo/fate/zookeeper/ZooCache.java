@@ -414,7 +414,6 @@ public class ZooCache {
 
           final ZooKeeper zooKeeper = getZooKeeper();
 
-
           byte[] data = null;
 
           boolean watched = isWatched(zooKeeper, zPath);
@@ -452,14 +451,16 @@ public class ZooCache {
   }
 
   /*
-  Some of the table configuration parameters are possibly not in ZooKeeper yet and even though you are able
-  you should not put a watcher on them to observer the NodeCreated event. If you do that and the ZNode
-  for that configuration is never created,  you will have no way to delete the watcher you created for it in
-  Zookeeper.  Stranded watchers for never created table configs is causing memory leaks in Accumulo instances
-  that create and delete tables at a high rate.
+   * Some of the table configuration parameters are possibly not in ZooKeeper yet and even though
+   * you are able you should not put a watcher on them to observe the NodeCreated event. If you do
+   * that and the ZNode for that configuration is never created, you will have no way to delete the
+   * watcher you created for it in Zookeeper. Unremovable watchers that are created for for table
+   * configs that never actually have a Znode is causing memory leaks in Accumulo instances that
+   * create and delete tables at a high rate.
    */
 
-  private boolean isWatched(ZooKeeper zooKeeper, String zPath) throws KeeperException, InterruptedException {
+  private boolean isWatched(ZooKeeper zooKeeper, String zPath)
+      throws KeeperException, InterruptedException {
 
     boolean watched = true;
 
